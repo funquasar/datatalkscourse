@@ -1,0 +1,16 @@
+SELECT 
+	t."PULocationID",
+	zp."Zone" as PUZone,
+	t."DOLocationID",
+	zd."Zone" as DOZone,
+	AVG(total_amount)
+FROM 
+	yellow_taxi_trips as t 
+	LEFT JOIN zones as zp
+	ON zp."LocationID" = t."PULocationID"
+	LEFT JOIN zones as zd
+	ON zd."LocationID" = t."DOLocationID"
+GROUP BY
+	t."PULocationID", zp."Zone", t."DOLocationID", zd."Zone"
+ORDER BY
+	AVG(total_amount) DESC;
