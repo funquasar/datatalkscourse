@@ -1,9 +1,0 @@
-SELECT 
-	MAX(tip_amount),
-	DATE(tpep_pickup_datetime)
-FROM 
-	yellow_taxi_trips
-GROUP BY
-	DATE(tpep_pickup_datetime)
-ORDER BY
-	MAX(tip_amount) DESC;
