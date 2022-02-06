@@ -62,8 +62,8 @@ default_args = {
 
 AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 URL_PREFIX = 'https://s3.amazonaws.com/nyc-tlc/trip+data' 
-URL_TEMPLATE = URL_PREFIX + '/yellow_tripdata_{{ execution_date.strftime(\'%Y-%m\') }}.csv'
-OUTPUT_FILE_TEMPLATE = AIRFLOW_HOME + '/output_{{ execution_date.strftime(\'%Y-%m\') }}.csv'
+URL_TEMPLATE = URL_PREFIX + '/yellow_tripdata_{{ logical_date.strftime(\'%Y-%m\') }}.csv'
+OUTPUT_FILE_TEMPLATE = AIRFLOW_HOME + '/output_{{ logcal_date.strftime(\'%Y-%m\') }}.csv'
 parquet_file = OUTPUT_FILE_TEMPLATE.replace('.csv', '.parquet')
 
 # NOTE: DAG declaration - using a Context Manager (an implicit way)
