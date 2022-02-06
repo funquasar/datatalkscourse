@@ -1,6 +1,8 @@
 import os
 import logging
 
+from time import time
+
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.bash import BashOperator
@@ -14,12 +16,12 @@ import pyarrow.parquet as pq
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 BUCKET = os.environ.get("GCP_GCS_BUCKET")
 
-dataset_file = "yellow_tripdata_2021-01.csv"
+dataset_date = "{{ execution_date.strftime(\'%Y-%m\') }}"
+dataset_file = f"yellow_tripdata_{dataset_date}.csv"
 dataset_url = f"https://s3.amazonaws.com/nyc-tlc/trip+data/{dataset_file}"
 path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 parquet_file = dataset_file.replace('.csv', '.parquet')
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
-
 
 def format_to_parquet(src_file):
     if not src_file.endswith('.csv'):
@@ -61,7 +63,8 @@ default_args = {
 # NOTE: DAG declaration - using a Context Manager (an implicit way)
 with DAG(
     dag_id="data_ingestion_gcs_dag",
-    schedule_interval="@daily",
+    schedule_interval="0 6 2 * *",
+    start_date=datetime(2021, 1, 1),
     default_args=default_args,
     catchup=False,
     max_active_runs=1,
