@@ -64,7 +64,7 @@ default_args = {
 with DAG(
     dag_id="data_ingestion_gcs_dag",
     schedule_interval="0 6 2 * *",
-    start_date=datetime(2021, 1, 1),
+    start_date=datetime(2019, 1, 1),
     default_args=default_args,
     catchup=False,
     max_active_runs=1,
