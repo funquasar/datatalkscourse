@@ -1,7 +1,7 @@
 import os
 import logging
 
-from time import time
+from pendulum import datetime
 
 from airflow import DAG
 from airflow.utils.dates import days_ago
