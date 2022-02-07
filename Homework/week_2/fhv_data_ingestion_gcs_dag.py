@@ -16,15 +16,15 @@ from datetime import datetime
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 BUCKET = os.environ.get("GCP_GCS_BUCKET")
 
-dataset_file = "yellow_tripdata_{{ execution_date.strftime(\'%Y-%m\') }}.csv"
-dataset_url = f"https://s3.amazonaws.com/nyc-tlc/trip+data"
+dataset_file = "fhv_tripdata_{{ execution_date.strftime(\'%Y-%m\') }}.csv"
+dataset_url = f"https://nyc-tlc.s3.amazonaws.com/trip+data"
 url_template = dataset_url + '/' + dataset_file
 path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 parquet_file = dataset_file.replace('.csv', '.parquet')
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
 
 OUTPUT_FILE_TEMPLATE = path_to_local_home + '/output_' + dataset_file
-TABLE_NAME_TEMPLATE = 'yellow_taxi_{{ execution_date.strftime(\'%Y_%m\') }}'
+TABLE_NAME_TEMPLATE = 'fhv_tripdata_{{ execution_date.strftime(\'%Y_%m\') }}'
 OUTPUT_FILE_PARQUET = path_to_local_home + '/output_' + parquet_file
 
 def format_to_parquet(src_file):
@@ -68,11 +68,11 @@ default_args = {
 
 # NOTE: DAG declaration - using a Context Manager (an implicit way)
 with DAG(
-    dag_id="data_ingestion_gcs_dag",
+    dag_id="fhv_data_ingestion_gcs_dag",
 #  schedule_interval="@daily",
     schedule_interval="0 6 2 * *",
     start_date=datetime(2019, 1, 1),
-    end_date=datetime(2021, 1, 1),
+    end_date=datetime(2020, 1, 1),
     default_args=default_args,
     catchup=True,
     max_active_runs=1,
@@ -118,4 +118,8 @@ with DAG(
         },
     )
 
-    download_dataset_task >> format_to_parquet_task >> local_to_gcs_task >> bigquery_external_table_task
+    cleanup_task = BashOperator(
+        task_id='cleanup_task',
+        bash_command=f"rm {OUTPUT_FILE_TEMPLATE} {OUTPUT_FILE_PARQUET}"
+    )
+    download_dataset_task >> format_to_parquet_task >> local_to_gcs_task >> bigquery_external_table_task >> cleanup_task

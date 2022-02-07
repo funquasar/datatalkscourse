@@ -11,20 +11,17 @@ from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateExte
 import pyarrow.csv as pv
 import pyarrow.parquet as pq
 
-from datetime import datetime
-
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 BUCKET = os.environ.get("GCP_GCS_BUCKET")
 
-dataset_file = "yellow_tripdata_{{ execution_date.strftime(\'%Y-%m\') }}.csv"
-dataset_url = f"https://s3.amazonaws.com/nyc-tlc/trip+data"
-url_template = dataset_url + '/' + dataset_file
+dataset_file = "taxi+_zone_lookup.csv"
+dataset_url = f"https://s3.amazonaws.com/nyc-tlc/misc/{dataset_file}"
 path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 parquet_file = dataset_file.replace('.csv', '.parquet')
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
 
 OUTPUT_FILE_TEMPLATE = path_to_local_home + '/output_' + dataset_file
-TABLE_NAME_TEMPLATE = 'yellow_taxi_{{ execution_date.strftime(\'%Y_%m\') }}'
+TABLE_NAME_TEMPLATE = 'zns_tripdata_{{ execution_date.strftime(\'%Y_%m\') }}'
 OUTPUT_FILE_PARQUET = path_to_local_home + '/output_' + parquet_file
 
 def format_to_parquet(src_file):
@@ -59,36 +56,31 @@ def upload_to_gcs(bucket, object_name, local_file):
 
 default_args = {
     "owner": "airflow",
-#   "schedule_interval": "0 6 2 * *",
-#   "start_date": datetime(2021, 1, 1),
-#   "start_date": days_ago(1),
+    "start_date": days_ago(1),
     "depends_on_past": False,
     "retries": 1,
 }
 
 # NOTE: DAG declaration - using a Context Manager (an implicit way)
 with DAG(
-    dag_id="data_ingestion_gcs_dag",
-#  schedule_interval="@daily",
-    schedule_interval="0 6 2 * *",
-    start_date=datetime(2019, 1, 1),
-    end_date=datetime(2021, 1, 1),
+    dag_id="zn_data_ingestion_gcs_dag",
+    schedule_interval="@once",
     default_args=default_args,
-    catchup=True,
+    catchup=False,
     max_active_runs=1,
     tags=['dtc-de'],
 ) as dag:
 
     download_dataset_task = BashOperator(
         task_id="download_dataset_task",
-        bash_command=f"curl -sSL {url_template} > {OUTPUT_FILE_TEMPLATE}"
+        bash_command=f"curl -sSL {dataset_url} > {path_to_local_home}/{dataset_file}"
     )
 
     format_to_parquet_task = PythonOperator(
         task_id="format_to_parquet_task",
         python_callable=format_to_parquet,
         op_kwargs={
-            "src_file": f"{OUTPUT_FILE_TEMPLATE}",
+            "src_file": f"{path_to_local_home}/{dataset_file}",
         },
     )
 
@@ -99,7 +91,7 @@ with DAG(
         op_kwargs={
             "bucket": BUCKET,
             "object_name": f"raw/{parquet_file}",
-            "local_file": f"{OUTPUT_FILE_PARQUET}",
+            "local_file": f"{path_to_local_home}/{parquet_file}",
         },
     )
 
@@ -117,5 +109,9 @@ with DAG(
             },
         },
     )
+    cleanup_task = BashOperator(
+        task_id='cleanup_task',
+        bash_command=f"rm {OUTPUT_FILE_TEMPLATE} {OUTPUT_FILE_PARQUET}"
+    )
 
-    download_dataset_task >> format_to_parquet_task >> local_to_gcs_task >> bigquery_external_table_task
+    download_dataset_task >> format_to_parquet_task >> local_to_gcs_task >> bigquery_external_table_task >> cleanup_task

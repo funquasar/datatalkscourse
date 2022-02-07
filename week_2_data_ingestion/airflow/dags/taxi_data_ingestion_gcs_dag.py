@@ -68,7 +68,7 @@ default_args = {
 
 # NOTE: DAG declaration - using a Context Manager (an implicit way)
 with DAG(
-    dag_id="data_ingestion_gcs_dag",
+    dag_id="taxi_data_ingestion_gcs_dag",
 #  schedule_interval="@daily",
     schedule_interval="0 6 2 * *",
     start_date=datetime(2019, 1, 1),
@@ -118,4 +118,9 @@ with DAG(
         },
     )
 
-    download_dataset_task >> format_to_parquet_task >> local_to_gcs_task >> bigquery_external_table_task
+    cleanup_task = BashOperator(
+        task_id='cleanup_task',
+        bash_command=f"rm {OUTPUT_FILE_TEMPLATE} {OUTPUT_FILE_PARQUET}"
+    )
+
+    download_dataset_task >> format_to_parquet_task >> local_to_gcs_task >> bigquery_external_table_task >> cleanup_task
