@@ -1,8 +1,6 @@
 import os
 import logging
 
-from pendulum import datetime
-
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.bash import BashOperator
@@ -16,12 +14,12 @@ import pyarrow.parquet as pq
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 BUCKET = os.environ.get("GCP_GCS_BUCKET")
 
-##dataset_date = "{{ execution_date.strftime(\'%Y-%m\') }}"
-##dataset_file = f"yellow_tripdata_{dataset_date}.csv"
-##dataset_url = f"https://s3.amazonaws.com/nyc-tlc/trip+data/{dataset_file}"
-##path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
-##parquet_file = dataset_file.replace('.csv', '.parquet')
+dataset_file = "yellow_tripdata_2021-01.csv"
+dataset_url = f"https://s3.amazonaws.com/nyc-tlc/trip+data/{dataset_file}"
+path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
+parquet_file = dataset_file.replace('.csv', '.parquet')
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
+
 
 def format_to_parquet(src_file):
     if not src_file.endswith('.csv'):
@@ -55,22 +53,15 @@ def upload_to_gcs(bucket, object_name, local_file):
 
 default_args = {
     "owner": "airflow",
-    "start_date": datetime(2019, 1, 1),
+    "start_date": days_ago(1),
     "depends_on_past": False,
     "retries": 1,
 }
 
-AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
-URL_PREFIX = 'https://s3.amazonaws.com/nyc-tlc/trip+data' 
-URL_TEMPLATE = URL_PREFIX + '/yellow_tripdata_{{ logical_date.strftime(\'%Y-%m\') }}.csv'
-OUTPUT_FILE_TEMPLATE = AIRFLOW_HOME + '/output_{{ logcal_date.strftime(\'%Y-%m\') }}.csv'
-parquet_file = OUTPUT_FILE_TEMPLATE.replace('.csv', '.parquet')
-
 # NOTE: DAG declaration - using a Context Manager (an implicit way)
 with DAG(
     dag_id="data_ingestion_gcs_dag",
-    schedule_interval="0 6 2 * *",
-    start_date=datetime(2019, 1, 1),
+    schedule_interval="@daily",
     default_args=default_args,
     catchup=False,
     max_active_runs=1,
@@ -79,16 +70,14 @@ with DAG(
 
     download_dataset_task = BashOperator(
         task_id="download_dataset_task",
-    ##    bash_command=f"curl -sS {dataset_url} > {path_to_local_home}/{dataset_file}"
-        bash_command=f'curl -sSL {URL_TEMPLATE} > {AIRFLOW_HOME}/{OUTPUT_FILE_TEMPLATE}'
-
+        bash_command=f"curl -sSL {dataset_url} > {path_to_local_home}/{dataset_file}"
     )
 
     format_to_parquet_task = PythonOperator(
         task_id="format_to_parquet_task",
         python_callable=format_to_parquet,
         op_kwargs={
-            "src_file": f"{AIRFLOW_HOME}/{OUTPUT_FILE_TEMPLATE}",
+            "src_file": f"{path_to_local_home}/{dataset_file}",
         },
     )
 
@@ -99,7 +88,7 @@ with DAG(
         op_kwargs={
             "bucket": BUCKET,
             "object_name": f"raw/{parquet_file}",
-            "local_file": f"{AIRFLOW_HOME}/{parquet_file}",
+            "local_file": f"{path_to_local_home}/{parquet_file}",
         },
     )
 
