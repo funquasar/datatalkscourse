@@ -1,0 +1,37 @@
+CREATE OR REPLACE EXTERNAL TABLE `dtc-de-339119.trips_data_all.external_yellow_tripdata`
+OPTIONS (
+  format = 'PARQUET',
+  uris = ['gs://dtc_data_lake_dtc-de-339119/yellow/yellow_tripdata_2019-*.parquet', 'gs://dtc_data_lake_dtc-de-339119/yellow/yellow_tripdata_2020-*.parquet']
+);
+
+SELECT * FROM `dtc-de-339119.trips_data_all.external_yellow_tripdata` limit 10;
+
+CREATE OR REPLACE EXTERNAL TABLE `dtc-de-339119.trips_data_all.external_fhv_tripdata`
+OPTIONS (
+  format = 'PARQUET',
+  uris = ['gs://dtc_data_lake_dtc-de-339119/fhv/fhv_tripdata_2019-*.parquet']
+);
+
+SELECT * FROM `dtc-de-339119.trips_data_all.external_fhv_tripdata` LIMIT 10
+
+CREATE OR REPLACE EXTERNAL TABLE `dtc-de-339119.trips_data_all.external_zones_tripdata`
+OPTIONS (
+  format = 'PARQUET',
+  uris = ['gs://dtc_data_lake_dtc-de-339119/zones/taxi+_zone_lookup.parquet']
+);
+
+SELECT * FROM `dtc-de-339119.trips_data_all.external_zones_tripdata` LIMIT 10
+
+CREATE OR REPLACE TABLE dtc-de-339119.trips_data_all.external_fhv_tripdata_part_clust
+PARTITION BY DATE(dropoff_datetime)
+CLUSTER BY dispatching_base_num AS
+SELECT * FROM dtc-de-339119.trips_data_all.external_fhv_tripdata;
+
+SELECT 
+    COUNT(*)
+FROM 
+    dtc-de-339119.trips_data_all.external_fhv_tripdata_partitoned
+WHERE
+    dropoff_datetime BETWEEN '2019-01-01' AND '2019-03-31'
+    AND
+    dispatching_base_num IN ('B00987', 'B02060', 'B02279');
